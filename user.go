@@ -3,6 +3,7 @@ package redmine
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -27,28 +28,31 @@ type User struct {
 	CustomFields []*CustomField `json:"custom_fields,omitempty"`
 }
 
-func (c *Client) Users() ([]User, error) {
-	res, err := c.Get(c.endpoint + "/users.json?key=" + c.apikey + c.getPaginationClause())
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
+type UserFilter struct {
+	Status  int8
+	Name    string
+	GroupId int
+}
 
-	decoder := json.NewDecoder(res.Body)
-	var r usersResult
-	if res.StatusCode != 200 {
-		var er errorsResult
-		err = decoder.Decode(&er)
-		if err == nil {
-			err = errors.New(strings.Join(er.Errors, "\n"))
+func (c *Client) Users() ([]User, error) {
+	return c.getUsers("/users.json?key=" + c.apikey + c.getPaginationClause())
+}
+
+func (c *Client) UsersByFilter(f *UserFilter) ([]User, error) {
+	filterString := ""
+	if f != nil {
+		if f.Status > 0 {
+			filterString = filterString + fmt.Sprintf("&status=%d", f.Status)
 		}
-	} else {
-		err = decoder.Decode(&r)
+		if f.Name != "" {
+			filterString = filterString + fmt.Sprintf("&name=%s", f.Name)
+		}
+		if f.GroupId > 0 {
+			filterString = filterString + fmt.Sprintf("&group_id=%d", f.GroupId)
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return r.Users, nil
+
+	return c.getUsers("/users.json?key=" + c.apikey + c.getPaginationClause() + filterString)
 }
 
 func (c *Client) User(id int) (*User, error) {
@@ -73,4 +77,29 @@ func (c *Client) User(id int) (*User, error) {
 		return nil, err
 	}
 	return &r.User, nil
+}
+
+func (c *Client) getUsers(url string) ([]User, error) {
+	res, err := c.Get(c.endpoint + url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	decoder := json.NewDecoder(res.Body)
+	var r usersResult
+	if res.StatusCode != 200 {
+		var er errorsResult
+		err = decoder.Decode(&er)
+		if err == nil {
+			err = errors.New(strings.Join(er.Errors, "\n"))
+		}
+	} else {
+		err = decoder.Decode(&r)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.Users, nil
+
 }
