@@ -76,6 +76,7 @@ type IssueFilter struct {
 	StatusId     string
 	AssignedToId string
 	UpdatedOn    string
+	CustomFields map[int]string
 }
 
 type CustomField struct {
@@ -254,6 +255,11 @@ func getIssueFilterClause(filter *IssueFilter) string {
 	}
 	if filter.UpdatedOn != "" {
 		clause = clause + fmt.Sprintf("&updated_on=%v", filter.UpdatedOn)
+	}
+	if len(filter.CustomFields) > 0 {
+		for cId, cValue := range filter.CustomFields {
+			clause = clause + fmt.Sprintf("&cf_%v=%s", cId, cValue)
+		}
 	}
 
 	return clause
